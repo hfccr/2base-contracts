@@ -14,20 +14,36 @@ contract Registry is Ownable {
         string id;
         Provider provider;
     }
-    struct ProfieWithBalance {
+    struct ProfileDetails {
         string id;
         Provider provider;
         uint256 balance;
         uint256 claimed;
     }
+
     // create a registry of provider to profile(string) to pending balance mapping
     mapping(Provider => mapping(string => uint256)) public registry;
 
-    // create a registry of provider to profile(string) to profile created boolean
+    // create a registry of provider to profile(string) created boolean
     mapping(Provider => mapping(string => bool)) public claimed;
 
+    mapping(Provider => mapping(string => address)) public claimedAddress;
+    mapping(address claimerAddress => Profile) public claimedProfiles;
+
     // track the profiles invited by an address
-    mapping(address => Profile[]) public invitedProfiles;
+    mapping(address inviteSender => Profile[]) public invitedProfiles;
+
+    // track invites count by address
+    mapping(address inviteSender => uint256) public inviteCounts;
+
+    // track successful/claimed invite counts by address
+    mapping(address => uint256) public claimedInviteCounts;
+
+    // array to track addresses that send invites
+    address[] public inviteSenders;
+
+    // helper mapping to check if address is already added to inviteSenders
+    mapping(address => bool) public hasSentInvite;
 
     // write a function to send 0.0001 eth to a profile
     function invite(Profile memory profile) public payable {
@@ -39,17 +55,29 @@ contract Registry is Ownable {
                 profile.provider == Provider.instagram,
             "Invalid provider"
         );
-        // For now, fix the amout to simplify the app
+        // For now, fix the amount to simplify the app
         require(msg.value == 0.0001 ether, "Invalid amount");
         // require profile not already claimed
         require(
             claimed[profile.provider][profile.id] == false,
             "Profile already claimed"
         );
+
+        // add balance to registry
         registry[profile.provider][profile.id] += msg.value;
         claimed[profile.provider][profile.id] = false;
+
         // add invited profile to the sender's list
         invitedProfiles[msg.sender].push(profile);
+
+        // increment the invite count for the sender
+        inviteCounts[msg.sender]++;
+
+        // add the address to inviteSenders if it's not already there
+        if (!hasSentInvite[msg.sender]) {
+            inviteSenders.push(msg.sender);
+            hasSentInvite[msg.sender] = true;
+        }
     }
 
     // write a function to claim a profile
@@ -58,21 +86,95 @@ contract Registry is Ownable {
             claimed[profile.provider][profile.id] == false,
             "Profile already claimed"
         );
-        // TODO: integrate reclaim verification;
-        payable(msg.sender).transfer(registry[profile.provider][profile.id]);
+
+        // transfer balance to the caller
+        uint256 balance = registry[profile.provider][profile.id];
+        require(balance > 0, "No balance to claim");
+
+        
+
+        payable(msg.sender).transfer(balance);
+
+        // reset the registry and mark as claimed
         registry[profile.provider][profile.id] = 0;
+        claimed[profile.provider][profile.id] = true;
+
+        // increment successful/claimed invite count for the sender
+        claimedInviteCounts[msg.sender]++;
     }
 
     // view the list of profiles invited by an address along with balance and claimed status
-    function viewInvitedProfiles() public view returns (Profile[] memory) {
-        return invitedProfiles[msg.sender];
+    function viewInvitedProfiles()
+        public
+        view
+        returns (ProfileDetails[] memory)
+    {
+        uint256 count = invitedProfiles[msg.sender].length;
+        ProfileDetails[] memory profiles = new ProfileDetails[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            Profile memory profile = invitedProfiles[msg.sender][i];
+            profiles[i] = ProfileDetails({
+                id: profile.id,
+                provider: profile.provider,
+                balance: registry[profile.provider][profile.id],
+                claimed: claimed[profile.provider][profile.id] ? 1 : 0
+            });
+        }
+
+        return profiles;
     }
 
     // write a function to return the balance and invite count for a profile
+    function getProfileBalanceAndInviteCount(
+        Profile memory profile
+    ) public view returns (uint256 balance, uint256 inviteCount) {
+        balance = registry[profile.provider][profile.id];
+        inviteCount = inviteCounts[msg.sender];
+    }
 
-    // write a funcion to return the profiles that have been invited
+    // write a function to return the profiles that have been invited
+    function getInvitedProfiles() public view returns (Profile[] memory) {
+        return invitedProfiles[msg.sender];
+    }
 
     // write a function to return the addresses that have sent invites with their invite count
+    function getAddressesWithInviteCounts()
+        public
+        view
+        returns (address[] memory, uint256[] memory)
+    {
+        uint256 totalAddresses = inviteSenders.length;
+
+        address[] memory addressesWithInvites = new address[](totalAddresses);
+        uint256[] memory counts = new uint256[](totalAddresses);
+
+        for (uint256 i = 0; i < totalAddresses; i++) {
+            address sender = inviteSenders[i];
+            addressesWithInvites[i] = sender;
+            counts[i] = inviteCounts[sender];
+        }
+
+        return (addressesWithInvites, counts);
+    }
 
     // write a function to return addresses with successful/claimed invite counts
+    function getAddressesWithClaimedInvites()
+        public
+        view
+        returns (address[] memory, uint256[] memory)
+    {
+        uint256 totalAddresses = inviteSenders.length;
+
+        address[] memory addressesWithClaims = new address[](totalAddresses);
+        uint256[] memory counts = new uint256[](totalAddresses);
+
+        for (uint256 i = 0; i < totalAddresses; i++) {
+            address sender = inviteSenders[i];
+            addressesWithClaims[i] = sender;
+            counts[i] = claimedInviteCounts[sender];
+        }
+
+        return (addressesWithClaims, counts);
+    }
 }

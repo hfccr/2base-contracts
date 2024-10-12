@@ -9,12 +9,18 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
-    "hardhat": "^2.22.13"
+    "@types/chai": "^5.0.0",
+    "@types/chai-as-promised": "^8.0.1",
+    "chai": "^4.3.7",
+    "chai-as-promised": "^6.3.7",
+    "hardhat": "^2.19.4"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.2",
     "@openzeppelin/contracts-upgradeable": "^4.9.2",
-    "@reclaimprotocol/verifier-solidity-sdk": "^1.0.3"
+    "@reclaimprotocol/verifier-solidity-sdk": "^1.0.3",
+    "viem": "^2.21.23"
   }
 }
