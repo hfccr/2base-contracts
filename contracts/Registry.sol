@@ -58,13 +58,21 @@ contract Registry is Ownable {
             claimed[profile.provider][profile.id] == false,
             "Profile already claimed"
         );
+        // TODO: integrate reclaim verification;
         payable(msg.sender).transfer(registry[profile.provider][profile.id]);
         registry[profile.provider][profile.id] = 0;
-        // TODO: integrate reclaim verification
     }
 
     // view the list of profiles invited by an address along with balance and claimed status
     function viewInvitedProfiles() public view returns (Profile[] memory) {
         return invitedProfiles[msg.sender];
     }
+
+    // write a function to return the balance and invite count for a profile
+
+    // write a funcion to return the profiles that have been invited
+
+    // write a function to return the addresses that have sent invites with their invite count
+
+    // write a function to return addresses with successful/claimed invite counts
 }

@@ -18,7 +18,7 @@ contract Attestor {
         Reclaim.Proof memory proof,
         string memory profileClaim
     ) public returns (bool) {
-        Reclaim(reclaimAddress).verifyProof(proof);
+        // Reclaim(reclaimAddress).verifyProof(proof);
         // TODO: your business logic upon success
         // verify proof.context is what you expect
 
