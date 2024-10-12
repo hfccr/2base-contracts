@@ -91,8 +91,6 @@ contract Registry is Ownable {
         uint256 balance = registry[profile.provider][profile.id];
         require(balance > 0, "No balance to claim");
 
-        
-
         payable(msg.sender).transfer(balance);
 
         // reset the registry and mark as claimed
@@ -176,5 +174,31 @@ contract Registry is Ownable {
         }
 
         return (addressesWithClaims, counts);
+    }
+
+    // Write a function to reset the entire registry. Money will not be sent back.
+    // TODO: check if this function is working properly
+    function resetRegistry() public onlyOwner {
+        for (uint256 i = 0; i < inviteSenders.length; i++) {
+            address sender = inviteSenders[i];
+            delete invitedProfiles[sender];
+            delete inviteCounts[sender];
+            delete claimedInviteCounts[sender];
+            delete hasSentInvite[sender];
+        }
+        delete inviteSenders;
+        // Manually delete entries in the registry mapping
+        for (uint256 p = 0; p < 4; p++) {
+            Provider provider = Provider(p);
+            for (uint256 i = 0; i < inviteSenders.length; i++) {
+                address sender = inviteSenders[i];
+                Profile[] memory profiles = invitedProfiles[sender];
+                for (uint256 j = 0; j < profiles.length; j++) {
+                    string memory profileId = profiles[j].id;
+                    delete registry[provider][profileId];
+                    delete claimed[provider][profileId];
+                }
+            }
+        }
     }
 }
