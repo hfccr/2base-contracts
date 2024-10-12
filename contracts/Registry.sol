@@ -45,6 +45,9 @@ contract Registry is Ownable {
     // track successful/claimed invite counts by address
     mapping(address inviteSender => uint256) public claimedInviteCounts;
 
+    // track all the inviters for a specific provider
+    mapping(Provider => mapping(string id => address[])) public inviters;
+
     // array to track addresses that send invites
     address[] public inviteSenders;
 
@@ -73,6 +76,7 @@ contract Registry is Ownable {
         registry[profile.provider][profile.id] += msg.value;
         claimed[profile.provider][profile.id] = false;
 
+        inviters[profile.provider][profile.id].push(msg.sender);
         // add invited profile to the sender's list
         invitedProfiles[msg.sender].push(profile);
 
@@ -105,6 +109,13 @@ contract Registry is Ownable {
 
         // increment successful/claimed invite count for the sender
         claimedInviteCounts[msg.sender]++;
+    }
+
+    // view all the invitors of a profile
+    function getInviters(
+        Profile calldata _profile
+    ) external view returns (address[] memory) {
+        return inviters[_profile.provider][_profile.id];
     }
 
     // view the list of profiles invited by an address along with balance and claimed status
@@ -183,23 +194,24 @@ contract Registry is Ownable {
     }
 
     function getInviteAndClaimedCounts()
-        external view
-        returns (InviteeDetails[] memory inviteeDetails)
+        external
+        view
+        returns (InviteeDetails[] memory)
     {
         uint256 totalAddresses = inviteSenders.length;
-        InviteeDetails[] memory inviteeDetails = new InviteeDetails[](
+        InviteeDetails[] memory _inviteeDetails = new InviteeDetails[](
             totalAddresses
         );
 
         for (uint256 i = 0; i < totalAddresses; i++) {
             address sender = inviteSenders[i];
-            inviteeDetails[i] = InviteeDetails({
+            _inviteeDetails[i] = InviteeDetails({
                 invitee: sender,
                 totalInvites: inviteCounts[sender],
                 claimedInvites: claimedInviteCounts[sender]
             });
         }
-        return inviteeDetails;
+        return _inviteeDetails;
     }
 
     // Write a function to reset the entire registry. Money will not be sent back.
