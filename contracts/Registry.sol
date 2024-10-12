@@ -21,6 +21,12 @@ contract Registry is Ownable {
         uint256 claimed;
     }
 
+    struct InviteeDetails {
+        address invitee;
+        uint256 totalInvites;
+        uint256 claimedInvites;
+    }
+
     // create a registry of provider to profile(string) to pending balance mapping
     mapping(Provider => mapping(string => uint256)) public registry;
 
@@ -37,7 +43,7 @@ contract Registry is Ownable {
     mapping(address inviteSender => uint256) public inviteCounts;
 
     // track successful/claimed invite counts by address
-    mapping(address => uint256) public claimedInviteCounts;
+    mapping(address inviteSender => uint256) public claimedInviteCounts;
 
     // array to track addresses that send invites
     address[] public inviteSenders;
@@ -174,6 +180,26 @@ contract Registry is Ownable {
         }
 
         return (addressesWithClaims, counts);
+    }
+
+    function getInviteAndClaimedCounts()
+        external view
+        returns (InviteeDetails[] memory inviteeDetails)
+    {
+        uint256 totalAddresses = inviteSenders.length;
+        InviteeDetails[] memory inviteeDetails = new InviteeDetails[](
+            totalAddresses
+        );
+
+        for (uint256 i = 0; i < totalAddresses; i++) {
+            address sender = inviteSenders[i];
+            inviteeDetails[i] = InviteeDetails({
+                invitee: sender,
+                totalInvites: inviteCounts[sender],
+                claimedInvites: claimedInviteCounts[sender]
+            });
+        }
+        return inviteeDetails;
     }
 
     // Write a function to reset the entire registry. Money will not be sent back.
