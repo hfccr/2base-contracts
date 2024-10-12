@@ -48,6 +48,8 @@ contract Registry is Ownable {
     // track all the inviters for a specific provider
     mapping(Provider => mapping(string id => address[])) public inviters;
 
+    mapping(address => mapping(Provider => string id)) public userProfiles;
+
     // array to track addresses that send invites
     address[] public inviteSenders;
 
@@ -113,9 +115,27 @@ contract Registry is Ownable {
 
     // view all the invitors of a profile
     function getInviters(
-        Profile calldata _profile
-    ) external view returns (address[] memory) {
-        return inviters[_profile.provider][_profile.id];
+        address user
+    )
+        external
+        view
+        returns (
+            address[] memory,
+            address[] memory,
+            address[] memory,
+            address[] memory
+        )
+    {
+        string memory github_id = userProfiles[user][Provider.github];
+        string memory twitter_id = userProfiles[user][Provider.twitter];
+        string memory instagram_id = userProfiles[user][Provider.instagram];
+        string memory youtube_id = userProfiles[user][Provider.youtube];
+        return (
+            inviters[Provider.github][github_id],
+            inviters[Provider.twitter][twitter_id],
+            inviters[Provider.instagram][instagram_id],
+            inviters[Provider.youtube][youtube_id]
+        );
     }
 
     // view the list of profiles invited by an address along with balance and claimed status
