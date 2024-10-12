@@ -143,9 +143,14 @@ contract Registry is Ownable {
     // write a function to return the balance and invite count for a profile
     function getProfileBalanceAndInviteCount(
         Profile memory profile
-    ) public view returns (uint256 balance, uint256 inviteCount) {
+    )
+        public
+        view
+        returns (uint256 balance, uint256 inviteCount, bool profileClaimed)
+    {
         balance = registry[profile.provider][profile.id];
         inviteCount = inviteCounts[msg.sender];
+        profileClaimed = claimed[profile.provider][profile.id];
     }
 
     // write a function to return the profiles that have been invited
