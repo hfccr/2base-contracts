@@ -27,6 +27,15 @@ contract Registry is Ownable {
         uint256 claimedInvites;
     }
 
+    struct ProfileInviteDetails {
+        string id;
+        Provider provider;
+        uint256 inviteCount;
+        uint256 claimCount;
+    }
+
+    uint256 public totalProfilesCount = 0;
+
     // create a registry of provider to profile(string) to pending balance mapping
     mapping(Provider => mapping(string => uint256)) public registry;
 
@@ -43,7 +52,10 @@ contract Registry is Ownable {
     mapping(address inviteSender => uint256) public inviteCounts;
 
     // track successful/claimed invite counts by address
-    mapping(address inviteSender => uint256) public claimedInviteCounts;
+    mapping(address inviteSender => uint256) public claimedInviteCountsOfSender;
+
+    mapping(Provider => mapping(string id => uint256))
+        public claimedInvitesByProfileCounts;
 
     // track all the inviters for a specific provider
     mapping(Provider => mapping(string id => address[])) public inviters;
@@ -90,6 +102,10 @@ contract Registry is Ownable {
             inviteSenders.push(msg.sender);
             hasSentInvite[msg.sender] = true;
         }
+
+        if (inviters[profile.provider][profile.id].length == 1) {
+            totalProfilesCount++;
+        }
     }
 
     // write a function to claim a profile
@@ -109,55 +125,52 @@ contract Registry is Ownable {
         registry[profile.provider][profile.id] = 0;
         claimed[profile.provider][profile.id] = true;
 
+        uint256 invitersCounts = inviters[profile.provider][profile.id].length;
+        address[] memory profileInviters = inviters[profile.provider][
+            profile.id
+        ];
+
         // increment successful/claimed invite count for the sender
-        claimedInviteCounts[msg.sender]++;
+        for (uint256 i = 0; i < invitersCounts; i++) {
+            ++claimedInviteCountsOfSender[profileInviters[i]];
+        }
+        claimedInvitesByProfileCounts[profile.provider][profile.id]++;
     }
 
-    // view all the invitors of a profile
-    function getInviters(
-        address user
-    )
+    // view all the invited profiles with their inviteCounts and claimed counts
+    function getInviters()
         external
         view
-        returns (
-            address[] memory,
-            address[] memory,
-            address[] memory,
-            address[] memory
-        )
+        returns (ProfileInviteDetails[] memory)
     {
-        string memory github_id = userProfiles[user][Provider.github];
-        string memory twitter_id = userProfiles[user][Provider.twitter];
-        string memory instagram_id = userProfiles[user][Provider.instagram];
-        string memory youtube_id = userProfiles[user][Provider.youtube];
-        return (
-            inviters[Provider.github][github_id],
-            inviters[Provider.twitter][twitter_id],
-            inviters[Provider.instagram][instagram_id],
-            inviters[Provider.youtube][youtube_id]
-        );
-    }
+        ProfileInviteDetails[]
+            memory profileDetails = new ProfileInviteDetails[](
+                totalProfilesCount
+            );
+        uint256 index = 0;
 
-    // view the list of profiles invited by an address along with balance and claimed status
-    function viewInvitedProfiles()
-        public
-        view
-        returns (ProfileDetails[] memory)
-    {
-        uint256 count = invitedProfiles[msg.sender].length;
-        ProfileDetails[] memory profiles = new ProfileDetails[](count);
+        // Iterate through each invite sender and collect profiles' invite and claim counts
+        for (uint256 i = 0; i < inviteSenders.length; i++) {
+            address sender = inviteSenders[i];
+            Profile[] memory profiles = invitedProfiles[sender];
 
-        for (uint256 i = 0; i < count; i++) {
-            Profile memory profile = invitedProfiles[msg.sender][i];
-            profiles[i] = ProfileDetails({
-                id: profile.id,
-                provider: profile.provider,
-                balance: registry[profile.provider][profile.id],
-                claimed: claimed[profile.provider][profile.id] ? 1 : 0
-            });
+            for (uint256 j = 0; j < profiles.length; j++) {
+                Profile memory profile = profiles[j];
+
+                // Populate the ProfileInviteDetails for each profile
+                profileDetails[index] = ProfileInviteDetails({
+                    id: profile.id,
+                    provider: profile.provider,
+                    inviteCount: inviters[profile.provider][profile.id].length,
+                    claimCount: claimedInvitesByProfileCounts[profile.provider][
+                        profile.id
+                    ]
+                });
+                index++;
+            }
         }
 
-        return profiles;
+        return profileDetails;
     }
 
     // write a function to return the balance and invite count for a profile
@@ -169,8 +182,8 @@ contract Registry is Ownable {
         returns (uint256 balance, uint256 inviteCount, bool profileClaimed)
     {
         balance = registry[profile.provider][profile.id];
-        inviteCount = inviteCounts[msg.sender];
         profileClaimed = claimed[profile.provider][profile.id];
+        inviteCount = inviters[profile.provider][profile.id].length;
     }
 
     // write a function to return the profiles that have been invited
@@ -212,7 +225,7 @@ contract Registry is Ownable {
         for (uint256 i = 0; i < totalAddresses; i++) {
             address sender = inviteSenders[i];
             addressesWithClaims[i] = sender;
-            counts[i] = claimedInviteCounts[sender];
+            counts[i] = claimedInviteCountsOfSender[sender];
         }
 
         return (addressesWithClaims, counts);
@@ -233,7 +246,7 @@ contract Registry is Ownable {
             _inviteeDetails[i] = InviteeDetails({
                 invitee: sender,
                 totalInvites: inviteCounts[sender],
-                claimedInvites: claimedInviteCounts[sender]
+                claimedInvites: claimedInviteCountsOfSender[sender]
             });
         }
         return _inviteeDetails;
@@ -246,7 +259,7 @@ contract Registry is Ownable {
             address sender = inviteSenders[i];
             delete invitedProfiles[sender];
             delete inviteCounts[sender];
-            delete claimedInviteCounts[sender];
+            delete claimedInviteCountsOfSender[sender];
             delete hasSentInvite[sender];
         }
         delete inviteSenders;
