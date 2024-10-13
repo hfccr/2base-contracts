@@ -2,6 +2,7 @@
 pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Reclaim.sol";
 
 contract Registry is Ownable {
     enum Provider {
@@ -33,6 +34,8 @@ contract Registry is Ownable {
         uint256 inviteCount;
         uint256 claimCount;
     }
+
+    address public reclaimAddress = 0xF90085f5Fd1a3bEb8678623409b3811eCeC5f6A5;
 
     uint256 public totalProfilesCount = 0;
 
@@ -72,6 +75,10 @@ contract Registry is Ownable {
 
     // mapping for invite reward
     mapping(address => uint256) public points;
+
+    constructor(address _reclaimAddress) {
+        reclaimAddress = _reclaimAddress;
+    }
 
     // New function added by Ayush to calculate points
     function updatePoints() public {
@@ -151,14 +158,47 @@ contract Registry is Ownable {
         registry[profile.provider][profile.id] = 0;
         claimed[profile.provider][profile.id] = true;
 
-        uint256 invitersCounts = inviters[profile.provider][profile.id].length;
+        uint256 invitersCount = inviters[profile.provider][profile.id].length;
         address[] memory profileInviters = inviters[profile.provider][
             profile.id
         ];
 
         // increment successful/claimed invite count for the sender
-        for (uint256 i = 0; i < invitersCounts; i++) {
-            ++claimedInviteCountsOfSender[profileInviters[i]];
+        for (uint256 i = 0; i < invitersCount; i++) {
+            claimedInviteCountsOfSender[profileInviters[i]]++;
+        }
+        claimedInvitesByProfileCounts[profile.provider][profile.id]++;
+    }
+
+    function claimWithProof(
+        Reclaim.Proof memory proof,
+        Profile memory profile
+    ) public {
+        require(
+            claimed[profile.provider][profile.id] == false,
+            "Profile already claimed"
+        );
+
+        bool isVerified = Reclaim(reclaimAddress).verifyProof(proof);
+        require(isVerified, "Invalid Proof");
+        // transfer balance to the caller
+        uint256 balance = registry[profile.provider][profile.id];
+        require(balance > 0, "No balance to claim");
+
+        payable(msg.sender).transfer(balance);
+
+        // reset the registry and mark as claimed
+        registry[profile.provider][profile.id] = 0;
+        claimed[profile.provider][profile.id] = true;
+
+        uint256 invitersCount = inviters[profile.provider][profile.id].length;
+        address[] memory profileInviters = inviters[profile.provider][
+            profile.id
+        ];
+
+        // increment successful/claimed invite count for the sender
+        for (uint256 i = 0; i < invitersCount; i++) {
+            claimedInviteCountsOfSender[profileInviters[i]]++;
         }
         claimedInvitesByProfileCounts[profile.provider][profile.id]++;
     }
