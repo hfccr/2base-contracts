@@ -65,33 +65,33 @@ contract Registry is Ownable {
     // array to track addresses that send invites
     address[] public inviteSenders;
 
+    Profile[] public allProfiles;
+
     // helper mapping to check if address is already added to inviteSenders
     mapping(address => bool) public hasSentInvite;
 
+    // mapping for invite reward
+    mapping(address => uint256) public points;
 
-        // mapping for invite reward
-    mapping (address =>uint256) public points;
+    // New function added by Ayush to calculate points
+    function updatePoints() public {
+        uint256 inviteCount = invitedProfiles[msg.sender].length;
 
+        // Reset points for the sender
+        points[msg.sender] = 0;
 
-// New function added by Ayush to calculate points
-function updatePoints() public {
-    uint256 inviteCount = invitedProfiles[msg.sender].length;
+        for (uint256 i = 0; i < inviteCount; i++) {
+            Profile memory profile = invitedProfiles[msg.sender][i];
 
-    // Reset points for the sender
-    points[msg.sender] = 0;
+            // Add 200 points for each invited profile
+            points[msg.sender] += 200;
 
-    for (uint256 i = 0; i < inviteCount; i++) {
-        Profile memory profile = invitedProfiles[msg.sender][i];
-
-        // Add 200 points for each invited profile
-        points[msg.sender] += 200;
-
-        // Add 500 points if the reward for this profile has been claimed
-        if (claimed[profile.provider][profile.id]) {
-            points[msg.sender] += 500;
+            // Add 500 points if the reward for this profile has been claimed
+            if (claimed[profile.provider][profile.id]) {
+                points[msg.sender] += 500;
+            }
         }
     }
-}
 
     // write a function to send 0.0001 eth to a profile
     function invite(Profile memory profile) public payable {
@@ -130,6 +130,7 @@ function updatePoints() public {
 
         if (inviters[profile.provider][profile.id].length == 1) {
             totalProfilesCount++;
+            allProfiles.push(profile);
         }
     }
 
@@ -172,27 +173,19 @@ function updatePoints() public {
             memory profileDetails = new ProfileInviteDetails[](
                 totalProfilesCount
             );
-        uint256 index = 0;
 
         // Iterate through each invite sender and collect profiles' invite and claim counts
-        for (uint256 i = 0; i < inviteSenders.length; i++) {
-            address sender = inviteSenders[i];
-            Profile[] memory profiles = invitedProfiles[sender];
-
-            for (uint256 j = 0; j < profiles.length; j++) {
-                Profile memory profile = profiles[j];
-
-                // Populate the ProfileInviteDetails for each profile
-                profileDetails[index] = ProfileInviteDetails({
-                    id: profile.id,
-                    provider: profile.provider,
-                    inviteCount: inviters[profile.provider][profile.id].length,
-                    claimCount: claimedInvitesByProfileCounts[profile.provider][
-                        profile.id
-                    ]
-                });
-                index++;
-            }
+        for (uint256 i = 0; i < totalProfilesCount; i++) {
+            // Populate the ProfileInviteDetails for each profile
+            Profile memory profile = allProfiles[i];
+            profileDetails[i] = ProfileInviteDetails({
+                id: profile.id,
+                provider: profile.provider,
+                inviteCount: inviters[profile.provider][profile.id].length,
+                claimCount: claimedInvitesByProfileCounts[profile.provider][
+                    profile.id
+                ]
+            });
         }
 
         return profileDetails;
