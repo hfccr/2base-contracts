@@ -76,9 +76,9 @@ contract Registry is Ownable {
     // mapping for invite reward
     mapping(address => uint256) public points;
 
-    constructor(address _reclaimAddress) {
-        reclaimAddress = _reclaimAddress;
-    }
+    // constructor(address _reclaimAddress) {
+    //     reclaimAddress = _reclaimAddress;
+    // }
 
     // New function added by Ayush to calculate points
     function updatePoints() public {
