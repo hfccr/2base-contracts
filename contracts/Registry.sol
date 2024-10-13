@@ -68,6 +68,31 @@ contract Registry is Ownable {
     // helper mapping to check if address is already added to inviteSenders
     mapping(address => bool) public hasSentInvite;
 
+
+        // mapping for invite reward
+    mapping (address =>uint256) public points;
+
+
+// New function added by Ayush to calculate points
+function updatePoints() public {
+    uint256 inviteCount = invitedProfiles[msg.sender].length;
+
+    // Reset points for the sender
+    points[msg.sender] = 0;
+
+    for (uint256 i = 0; i < inviteCount; i++) {
+        Profile memory profile = invitedProfiles[msg.sender][i];
+
+        // Add 200 points for each invited profile
+        points[msg.sender] += 200;
+
+        // Add 500 points if the reward for this profile has been claimed
+        if (claimed[profile.provider][profile.id]) {
+            points[msg.sender] += 500;
+        }
+    }
+}
+
     // write a function to send 0.0001 eth to a profile
     function invite(Profile memory profile) public payable {
         // check if provider is valid
