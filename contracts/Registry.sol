@@ -35,7 +35,8 @@ contract Registry is Ownable {
         uint256 claimCount;
     }
 
-    address public reclaimAddress = 0xF90085f5Fd1a3bEb8678623409b3811eCeC5f6A5;
+    Reclaim public reclaimContract =
+        Reclaim(0xF90085f5Fd1a3bEb8678623409b3811eCeC5f6A5);
 
     uint256 public totalProfilesCount = 0;
 
@@ -170,6 +171,25 @@ contract Registry is Ownable {
         claimedInvitesByProfileCounts[profile.provider][profile.id]++;
     }
 
+    function isMatch(
+        string memory data,
+        string memory target
+    ) private pure returns (bool) {
+        bytes memory dataBytes = bytes(data);
+        bytes memory targetBytes = bytes(target);
+        if (dataBytes.length != targetBytes.length) {
+            return false;
+        }
+        uint i = 0;
+        for (uint j = 0; j < targetBytes.length; j++) {
+            if (dataBytes[i + j] != targetBytes[j]) {
+                return false;
+            }
+            ++i;
+        }
+        return true;
+    }
+
     function claimWithProof(
         Reclaim.Proof memory proof,
         Profile memory profile
@@ -179,7 +199,15 @@ contract Registry is Ownable {
             "Profile already claimed"
         );
 
-        bool isVerified = Reclaim(reclaimAddress).verifyProof(proof);
+        string memory username = reclaimContract.extractFieldFromContext(
+            proof.claimInfo.context,
+            "username"
+        );
+
+        bool isDataAndProofValid = isMatch(username, profile.id);
+        require(isDataAndProofValid, "Data doesn't match with proof");
+
+        bool isVerified = reclaimContract.verifyProof(proof);
         require(isVerified, "Invalid Proof");
         // transfer balance to the caller
         uint256 balance = registry[profile.provider][profile.id];
