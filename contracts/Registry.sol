@@ -82,23 +82,10 @@ contract Registry is Ownable {
     // }
 
     // New function added by Ayush to calculate points
-    function updatePoints() public {
-        uint256 inviteCount = invitedProfiles[msg.sender].length;
+    function getPoints(address user) public view returns(uint256) {
 
         // Reset points for the sender
-        points[msg.sender] = 0;
-
-        for (uint256 i = 0; i < inviteCount; i++) {
-            Profile memory profile = invitedProfiles[msg.sender][i];
-
-            // Add 200 points for each invited profile
-            points[msg.sender] += 200;
-
-            // Add 500 points if the reward for this profile has been claimed
-            if (claimed[profile.provider][profile.id]) {
-                points[msg.sender] += 500;
-            }
-        }
+         return points[user];
     }
 
     // write a function to send 0.0001 eth to a profile
@@ -129,6 +116,7 @@ contract Registry is Ownable {
 
         // increment the invite count for the sender
         inviteCounts[msg.sender]++;
+             points[msg.sender] += 200;
 
         // add the address to inviteSenders if it's not already there
         if (!hasSentInvite[msg.sender]) {
@@ -160,6 +148,9 @@ contract Registry is Ownable {
         claimed[profile.provider][profile.id] = true;
 
         uint256 invitersCount = inviters[profile.provider][profile.id].length;
+        for(uint256 i=0; i<invitersCount;i++){
+                points[inviters[profile.provider][profile.id][i]] += 500;
+        }
         address[] memory profileInviters = inviters[profile.provider][
             profile.id
         ];
