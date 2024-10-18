@@ -40,6 +40,8 @@ contract Registry is Ownable {
 
     uint256 public totalProfilesCount = 0;
 
+    constructor() Ownable(msg.sender) {}
+
     // create a registry of provider to profile(string) to pending balance mapping
     mapping(Provider => mapping(string => uint256)) public registry;
 
@@ -47,24 +49,24 @@ contract Registry is Ownable {
     mapping(Provider => mapping(string => bool)) public claimed;
 
     mapping(Provider => mapping(string => address)) public claimedAddress;
-    mapping(address claimerAddress => Profile) public claimedProfiles;
+    mapping(address => Profile) public claimedProfiles;
 
     // track the profiles invited by an address
-    mapping(address inviteSender => Profile[]) public invitedProfiles;
+    mapping(address => Profile[]) public invitedProfiles;
 
     // track invites count by address
-    mapping(address inviteSender => uint256) public inviteCounts;
+    mapping(address => uint256) public inviteCounts;
 
     // track successful/claimed invite counts by address
-    mapping(address inviteSender => uint256) public claimedInviteCountsOfSender;
+    mapping(address => uint256) public claimedInviteCountsOfSender;
 
-    mapping(Provider => mapping(string id => uint256))
+    mapping(Provider => mapping(string => uint256))
         public claimedInvitesByProfileCounts;
 
     // track all the inviters for a specific provider
-    mapping(Provider => mapping(string id => address[])) public inviters;
+    mapping(Provider => mapping(string => address[])) public inviters;
 
-    mapping(address => mapping(Provider => string id)) public userProfiles;
+    mapping(address => mapping(Provider => string)) public userProfiles;
 
     // array to track addresses that send invites
     address[] public inviteSenders;
@@ -77,15 +79,10 @@ contract Registry is Ownable {
     // mapping for invite reward
     mapping(address => uint256) public points;
 
-    // constructor(address _reclaimAddress) {
-    //     reclaimAddress = _reclaimAddress;
-    // }
-
     // New function added by Ayush to calculate points
-    function getPoints(address user) public view returns(uint256) {
-
+    function getPoints(address user) public view returns (uint256) {
         // Reset points for the sender
-         return points[user];
+        return points[user];
     }
 
     // write a function to send 0.0001 eth to a profile
@@ -116,7 +113,7 @@ contract Registry is Ownable {
 
         // increment the invite count for the sender
         inviteCounts[msg.sender]++;
-             points[msg.sender] += 200;
+        points[msg.sender] += 200;
 
         // add the address to inviteSenders if it's not already there
         if (!hasSentInvite[msg.sender]) {
@@ -148,8 +145,8 @@ contract Registry is Ownable {
         claimed[profile.provider][profile.id] = true;
 
         uint256 invitersCount = inviters[profile.provider][profile.id].length;
-        for(uint256 i=0; i<invitersCount;i++){
-                points[inviters[profile.provider][profile.id][i]] += 500;
+        for (uint256 i = 0; i < invitersCount; i++) {
+            points[inviters[profile.provider][profile.id][i]] += 500;
         }
         address[] memory profileInviters = inviters[profile.provider][
             profile.id
@@ -162,18 +159,19 @@ contract Registry is Ownable {
         claimedInvitesByProfileCounts[profile.provider][profile.id]++;
     }
 
-    function isMatch(
-        string memory data,
-        string memory target
-    ) private pure returns (bool) {
+    function isMatch(string memory data, string memory target)
+        private
+        pure
+        returns (bool)
+    {
         bytes memory dataBytes = bytes(data);
         bytes memory targetBytes = bytes(target);
         if (dataBytes.length != targetBytes.length) {
             return false;
         }
-        uint i = 0;
-        for (uint j = 0; j < targetBytes.length; j++) {
-            if (dataBytes[i + j] != targetBytes[j]) {
+        uint256 i = 0;
+        for (uint256 j = 0; j < targetBytes.length; j++) {
+            if (dataBytes[i] != targetBytes[j]) {
                 return false;
             }
             ++i;
@@ -181,16 +179,75 @@ contract Registry is Ownable {
         return true;
     }
 
-    function claimWithProof(
-        Reclaim.Proof memory proof,
-        Profile memory profile
-    ) public {
+    function extractValue(string memory json, string memory key)
+        private
+        pure
+        returns (string memory)
+    {
+        bytes memory jsonBytes = bytes(json);
+
+        // Construct the search pattern for the key
+        bytes memory searchPattern = abi.encodePacked('"', key, '":"');
+
+        // Search for the key in the JSON string
+        for (uint256 i = 0; i <= jsonBytes.length - searchPattern.length; i++) {
+            bool foundKey = true;
+
+            // Check if the substring matches the search pattern
+            for (uint256 j = 0; j < searchPattern.length; j++) {
+                if (jsonBytes[i + j] != searchPattern[j]) {
+                    foundKey = false;
+                    break;
+                }
+            }
+
+            if (foundKey) {
+                // Key found, now extract the value
+                uint256 startIndex = i + searchPattern.length;
+                uint256 endIndex = startIndex;
+
+                // Find the end of the value
+                while (
+                    endIndex < jsonBytes.length && jsonBytes[endIndex] != '"'
+                ) {
+                    endIndex++;
+                }
+
+                // Extract and return the value
+                return string(substring(jsonBytes, startIndex, endIndex));
+            }
+        }
+
+        revert("Key not found");
+    }
+
+    function substring(
+        bytes memory str,
+        uint256 startIndex,
+        uint256 endIndex
+    ) private pure returns (bytes memory) {
+        require(
+            startIndex < endIndex && endIndex <= str.length,
+            "Invalid substring indices"
+        );
+
+        bytes memory result = new bytes(endIndex - startIndex);
+        for (uint256 i = startIndex; i < endIndex; i++) {
+            result[i - startIndex] = str[i];
+        }
+
+        return result;
+    }
+
+    function claimWithProof(Reclaim.Proof memory proof, Profile memory profile)
+        public
+    {
         require(
             claimed[profile.provider][profile.id] == false,
             "Profile already claimed"
         );
 
-        string memory username = reclaimContract.extractFieldFromContext(
+        string memory username = extractValue(
             proof.claimInfo.context,
             "username"
         );
@@ -198,8 +255,7 @@ contract Registry is Ownable {
         bool isDataAndProofValid = isMatch(username, profile.id);
         require(isDataAndProofValid, "Data doesn't match with proof");
 
-        bool isVerified = reclaimContract.verifyProof(proof);
-        require(isVerified, "Invalid Proof");
+        reclaimContract.verifyProof(proof);
         // transfer balance to the caller
         uint256 balance = registry[profile.provider][profile.id];
         require(balance > 0, "No balance to claim");
@@ -251,12 +307,14 @@ contract Registry is Ownable {
     }
 
     // write a function to return the balance and invite count for a profile
-    function getProfileBalanceAndInviteCount(
-        Profile memory profile
-    )
+    function getProfileBalanceAndInviteCount(Profile memory profile)
         public
         view
-        returns (uint256 balance, uint256 inviteCount, bool profileClaimed)
+        returns (
+            uint256 balance,
+            uint256 inviteCount,
+            bool profileClaimed
+        )
     {
         balance = registry[profile.provider][profile.id];
         profileClaimed = claimed[profile.provider][profile.id];
@@ -332,26 +390,45 @@ contract Registry is Ownable {
     // Write a function to reset the entire registry. Money will not be sent back.
     // TODO: check if this function is working properly
     function resetRegistry() public onlyOwner {
+        // Reset all the invite-related data for each invite sender
         for (uint256 i = 0; i < inviteSenders.length; i++) {
             address sender = inviteSenders[i];
+
+            // Delete invited profiles for the sender
             delete invitedProfiles[sender];
             delete inviteCounts[sender];
             delete claimedInviteCountsOfSender[sender];
             delete hasSentInvite[sender];
-        }
-        delete inviteSenders;
-        // Manually delete entries in the registry mapping
-        for (uint256 p = 0; p < 4; p++) {
-            Provider provider = Provider(p);
-            for (uint256 i = 0; i < inviteSenders.length; i++) {
-                address sender = inviteSenders[i];
-                Profile[] memory profiles = invitedProfiles[sender];
-                for (uint256 j = 0; j < profiles.length; j++) {
-                    string memory profileId = profiles[j].id;
-                    delete registry[provider][profileId];
-                    delete claimed[provider][profileId];
-                }
+            delete points[sender];
+            delete claimedProfiles[sender];
+
+            // Reset the userProfiles mapping
+            for (uint256 p = 0; p < 4; p++) {
+                Provider provider = Provider(p);
+                delete userProfiles[sender][provider];
             }
         }
+
+        // Clear the inviteSenders array
+        delete inviteSenders;
+
+        // Reset the registry, claimed, claimedAddress, and inviters mappings
+        for (uint256 p = 0; p < 4; p++) {
+            Provider provider = Provider(p);
+            for (uint256 i = 0; i < allProfiles.length; i++) {
+                string memory profileId = allProfiles[i].id;
+
+                // Delete all mappings related to this profile and provider
+                delete registry[provider][profileId];
+                delete claimed[provider][profileId];
+                delete claimedAddress[provider][profileId];
+                delete inviters[provider][profileId];
+                delete claimedInvitesByProfileCounts[provider][profileId];
+            }
+        }
+
+        // Reset the allProfiles array and the totalProfilesCount
+        delete allProfiles;
+        totalProfilesCount = 0;
     }
 }
