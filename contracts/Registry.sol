@@ -40,7 +40,7 @@ contract Registry is Ownable {
 
     uint256 public totalProfilesCount = 0;
 
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable() {}
 
     // create a registry of provider to profile(string) to pending balance mapping
     mapping(Provider => mapping(string => uint256)) public registry;
@@ -159,11 +159,10 @@ contract Registry is Ownable {
         claimedInvitesByProfileCounts[profile.provider][profile.id]++;
     }
 
-    function isMatch(string memory data, string memory target)
-        private
-        pure
-        returns (bool)
-    {
+    function isMatch(
+        string memory data,
+        string memory target
+    ) private pure returns (bool) {
         bytes memory dataBytes = bytes(data);
         bytes memory targetBytes = bytes(target);
         if (dataBytes.length != targetBytes.length) {
@@ -179,11 +178,10 @@ contract Registry is Ownable {
         return true;
     }
 
-    function extractValue(string memory json, string memory key)
-        private
-        pure
-        returns (string memory)
-    {
+    function extractValue(
+        string memory json,
+        string memory key
+    ) private pure returns (string memory) {
         bytes memory jsonBytes = bytes(json);
 
         // Construct the search pattern for the key
@@ -239,9 +237,10 @@ contract Registry is Ownable {
         return result;
     }
 
-    function claimWithProof(Reclaim.Proof memory proof, Profile memory profile)
-        public
-    {
+    function claimWithProof(
+        Reclaim.Proof memory proof,
+        Profile memory profile
+    ) public {
         require(
             claimed[profile.provider][profile.id] == false,
             "Profile already claimed"
@@ -307,14 +306,12 @@ contract Registry is Ownable {
     }
 
     // write a function to return the balance and invite count for a profile
-    function getProfileBalanceAndInviteCount(Profile memory profile)
+    function getProfileBalanceAndInviteCount(
+        Profile memory profile
+    )
         public
         view
-        returns (
-            uint256 balance,
-            uint256 inviteCount,
-            bool profileClaimed
-        )
+        returns (uint256 balance, uint256 inviteCount, bool profileClaimed)
     {
         balance = registry[profile.provider][profile.id];
         profileClaimed = claimed[profile.provider][profile.id];
