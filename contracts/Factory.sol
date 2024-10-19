@@ -40,6 +40,17 @@ contract Factory is AccessControl {
     // track invites count by address
     mapping(address => uint256) public inviteCounts;
 
+    // address to invited token id
+    mapping(address => uint256[]) public invites;
+
+    mapping(uint256 => uint256) public profileFee;
+
+    mapping(uint256 => uint256) public tokensSupply;
+
+    mapping(uint256 => bool) public claimed;
+
+    mapping(uint256 => address) public tokenProfileOwner;
+
     uint256 public INVITE_FEE = 0.001 ether;
     struct DeployedContract {
         address contractAddress;
@@ -47,6 +58,10 @@ contract Factory is AccessControl {
         Provider provider;
         uint256 id;
         address inviter;
+        uint256 totalSupply;
+        uint256 fee;
+        bool claimed;
+        address profileOwner;
     }
 
     function createContract(
@@ -55,13 +70,6 @@ contract Factory is AccessControl {
     ) public payable {
         // Check if a contract for this profile was already deployed
         // check if provider is valid
-        require(
-            provider == Provider.GITHUB ||
-                provider == Provider.TWITTER ||
-                provider == Provider.YOUTUBE ||
-                provider == Provider.INSTAGRAM,
-            "Invalid provider"
-        );
         require(msg.value == INVITE_FEE, "Invalid amount");
         require(
             !deployedProfiles[provider][profile],
@@ -74,12 +82,16 @@ contract Factory is AccessControl {
             new Token(address(this), count, "2Based", ticker, provider, profile)
         );
         _grantRole(TOKEN_ROLE, tokens);
+        payable(tokens).transfer(msg.value);
+        profileFee[count] += msg.value;
         deployedAccounts[tokens] = Account(profile, provider);
         deployedContracts.push(tokens);
         points[msg.sender] += 200;
         inviters[provider][profile] = msg.sender;
         inviteCounts[msg.sender]++;
+        deployedProfiles[provider][profile] = true;
         tokenInviter[tokens] = msg.sender;
+        invites[msg.sender].push(count);
         count++;
     }
 
@@ -99,7 +111,11 @@ contract Factory is AccessControl {
                 account.profile,
                 account.provider,
                 i,
-                tokenInviter[contractAddress]
+                tokenInviter[contractAddress],
+                tokensSupply[i],
+                profileFee[i],
+                claimed[i],
+                tokenProfileOwner[i]
             );
         }
         return contracts;
@@ -115,5 +131,46 @@ contract Factory is AccessControl {
     function getPoints(address user) public view returns (uint256) {
         // Reset points for the sender
         return points[user];
+    }
+
+    function getDeployedContractsByInviter(
+        address user
+    ) public view returns (DeployedContract[] memory) {
+        uint256[] memory contractIds = invites[user];
+        DeployedContract[] memory contracts = new DeployedContract[](
+            contractIds.length
+        );
+        for (uint256 i = 0; i < contractIds.length; i++) {
+            address contractAddress = deployedContracts[contractIds[i]];
+            Account memory account = deployedAccounts[contractAddress];
+            contracts[i] = DeployedContract(
+                contractAddress,
+                account.profile,
+                account.provider,
+                contractIds[i],
+                tokenInviter[contractAddress],
+                tokensSupply[contractIds[i]],
+                profileFee[contractIds[i]],
+                claimed[contractIds[i]],
+                tokenProfileOwner[contractIds[i]]
+            );
+        }
+        return contracts;
+    }
+
+    function onFeeCollected(uint256 tokenId, uint256 fee) external {
+        require(hasRole(TOKEN_ROLE, msg.sender), "Caller is not a token");
+        profileFee[tokenId] += fee;
+    }
+
+    function onTokensChange(uint256 tokenId, uint256 totalSupply) external {
+        require(hasRole(TOKEN_ROLE, msg.sender), "Caller is not a token");
+        tokensSupply[tokenId] = totalSupply;
+    }
+
+    function onClaimed(uint256 tokenId, address tokenOwnerAddress) external {
+        require(hasRole(TOKEN_ROLE, msg.sender), "Caller is not a token");
+        claimed[tokenId] = true;
+        tokenProfileOwner[tokenId] = tokenOwnerAddress;
     }
 }

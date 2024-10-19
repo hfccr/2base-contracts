@@ -33,6 +33,8 @@ contract Token is ERC20, Ownable {
     string public profile;
     Factory factory;
     uint256 public tokenId;
+    address public tokenOwner;
+    bool public claimed;
 
     constructor(
         address _factoryAddress,
@@ -78,8 +80,8 @@ contract Token is ERC20, Ownable {
             payable(msg.sender).transfer(msg.value - totalCost);
         }
 
-        // Transfer the fee to the owner's address
-        payable(owner()).transfer(fee);
+        factory.onFeeCollected(tokenId, fee);
+        factory.onTokensChange(tokenId, totalSupplyTokens);
     }
 
     // Function to sell tokens back to the contract
@@ -102,6 +104,8 @@ contract Token is ERC20, Ownable {
 
         // Transfer the fee to the owner's address
         payable(owner()).transfer(fee);
+        factory.onFeeCollected(tokenId, fee);
+        factory.onTokensChange(tokenId, totalSupplyTokens);
     }
 
     // Function to calculate the cost of buying tokens based on current supply
@@ -151,8 +155,17 @@ contract Token is ERC20, Ownable {
         return revenue;
     }
 
-    // Function to withdraw contract balance (for owner/admin purposes)
-    function withdraw() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
+    function claimTokenAcccount() external {
+        tokenOwner = msg.sender;
+        factory.onClaimed(tokenId, tokenOwner);
+        claimed = true;
+    }
+
+    function withdraw() external {
+        require(
+            msg.sender == tokenOwner,
+            "Only token profile owner can withdraw"
+        );
+        payable(tokenOwner).transfer(address(this).balance);
     }
 }
