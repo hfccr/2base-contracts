@@ -82,7 +82,6 @@ contract Factory is AccessControl {
             new Token(address(this), count, "2Based", ticker, provider, profile)
         );
         _grantRole(TOKEN_ROLE, tokens);
-        payable(tokens).transfer(msg.value);
         profileFee[count] += msg.value;
         deployedAccounts[tokens] = Account(profile, provider);
         deployedContracts.push(tokens);
