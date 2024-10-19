@@ -31,13 +31,19 @@ contract Token is ERC20, Ownable {
 
     Factory.Provider public provider;
     string public profile;
+    Factory factory;
+    uint256 public tokenId;
 
     constructor(
+        address _factoryAddress,
+        uint256 _tokenId,
         string memory _name,
         string memory _ticker,
         Factory.Provider _provider,
         string memory _profile
     ) ERC20(_name, _ticker) {
+        tokenId = _tokenId;
+        factory = Factory(_factoryAddress);
         provider = _provider;
         profile = _profile;
         bondSteps.push(BondStep(300, 0.00001 ether)); // 0-300 tokens at 0.00001 Ether each
