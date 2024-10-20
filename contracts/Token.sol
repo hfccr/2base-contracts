@@ -37,7 +37,6 @@ contract Token is ERC20, Ownable {
     uint256 public tokenId;
     address public tokenOwner;
     bool public claimed;
-    mapping(address => uint256) public userBalance;
 
     constructor(
         address _factoryAddress,
@@ -85,13 +84,9 @@ contract Token is ERC20, Ownable {
             _amount > 0 && balanceOf(msg.sender) >= _amount,
             "Invalid amount"
         );
-
         Cost memory cost = calculateRevenue(_amount);
-
         totalSupplyTokens -= _amount;
-        _burn(msg.sender, _amount); // Burn the sold tokens
-        userBalance[msg.sender] += cost.cost;
-        // payable(msg.sender).transfer(cost.cost); // Send revenue after deducting fee
+        payable(msg.sender).transfer(cost.cost); // Send revenue after deducting fee
         feeBalance += cost.fee; // Add fee to the fee balance
 
         // Transfer the fee to the owner's address
