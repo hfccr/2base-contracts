@@ -172,4 +172,23 @@ contract Factory is AccessControl {
         claimed[tokenId] = true;
         tokenProfileOwner[tokenId] = tokenOwnerAddress;
     }
+
+    function getDeployedContractByTokenId(
+        uint256 tokenId
+    ) public view returns (DeployedContract memory) {
+        address contractAddress = deployedContracts[tokenId];
+        Account memory account = deployedAccounts[contractAddress];
+        return
+            DeployedContract(
+                contractAddress,
+                account.profile,
+                account.provider,
+                tokenId,
+                tokenInviter[contractAddress],
+                tokensSupply[tokenId],
+                profileFee[tokenId],
+                claimed[tokenId],
+                tokenProfileOwner[tokenId]
+            );
+    }
 }
