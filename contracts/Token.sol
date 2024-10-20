@@ -155,10 +155,92 @@ contract Token is ERC20, Ownable {
     }
 
     function claimTokenAccount(Reclaim.Proof memory proof) external {
+        require(
+            tokenOwner == address(0x0),
+            "Profile already claimed"
+        );
+
+        string memory username = extractValue(
+            proof.claimInfo.context,
+            "username"
+        );
+
+        bool isDataAndProofValid = isMatch(username, profile);
+        require(isDataAndProofValid, "Data doesn't match with proof");
+        reclaimContract.verifyProof(proof);
         tokenOwner = msg.sender;
         factory.onClaimed(tokenId, tokenOwner);
         claimed = true;
+    }
 
+    function isMatch(string memory data, string memory target)
+        private
+        pure
+        returns (bool)
+    {
+        bytes memory dataBytes = bytes(data);
+        bytes memory targetBytes = bytes(target);
+        if (dataBytes.length != targetBytes.length) {
+            return false;
+        }
+        uint256 i = 0;
+        for (uint256 j = 0; j < targetBytes.length; j++) {
+            if (dataBytes[i] != targetBytes[j]) {
+                return false;
+            }
+            ++i;
+        }
+        return true;
+    }
+
+    function extractValue(string memory json, string memory key)
+        private
+        pure
+        returns (string memory)
+    {
+        bytes memory jsonBytes = bytes(json);
+        // Construct the search pattern for the key
+        bytes memory searchPattern = abi.encodePacked('"', key, '":"');
+        // Search for the key in the JSON string
+        for (uint256 i = 0; i <= jsonBytes.length - searchPattern.length; i++) {
+            bool foundKey = true;
+            // Check if the substring matches the search pattern
+            for (uint256 j = 0; j < searchPattern.length; j++) {
+                if (jsonBytes[i + j] != searchPattern[j]) {
+                    foundKey = false;
+                    break;
+                }
+            }
+            if (foundKey) {
+                // Key found, now extract the value
+                uint256 startIndex = i + searchPattern.length;
+                uint256 endIndex = startIndex;
+                // Find the end of the value
+                while (
+                    endIndex < jsonBytes.length && jsonBytes[endIndex] != '"'
+                ) {
+                    endIndex++;
+                }
+                // Extract and return the value
+                return string(substring(jsonBytes, startIndex, endIndex));
+            }
+        }
+        revert("Key not found");
+    }
+    function substring(
+        bytes memory str,
+        uint256 startIndex,
+        uint256 endIndex
+    ) private pure returns (bytes memory) {
+        require(
+            startIndex < endIndex && endIndex <= str.length,
+            "Invalid substring indices"
+        );
+        bytes memory result = new bytes(endIndex - startIndex);
+        for (uint256 i = startIndex; i < endIndex; i++) {
+            result[i - startIndex] = str[i];
+        }
+        return result;
     }
 
     function withdraw() external {
