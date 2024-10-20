@@ -19,7 +19,8 @@ contract Token is ERC20, Ownable {
         uint256 totalCost;
     }
 
-    Reclaim public reclaimContract = Reclaim(0xF90085f5Fd1a3bEb8678623409b3811eCeC5f6A5);
+    Reclaim public reclaimContract =
+        Reclaim(0xF90085f5Fd1a3bEb8678623409b3811eCeC5f6A5);
 
     // Array of bonding steps
     BondStep[] public bondSteps;
@@ -132,7 +133,7 @@ contract Token is ERC20, Ownable {
         uint256 revenue = 0;
         uint256 totalRemainingSupply = totalSupplyTokens;
         uint256 i = bondSteps.length;
-        while (i > 0 && totalRemainingSupply < bondSteps[i-1].rangeTo) {
+        while (i > 0 && totalRemainingSupply < bondSteps[i - 1].rangeTo) {
             i--;
         }
         i++;
@@ -155,10 +156,7 @@ contract Token is ERC20, Ownable {
     }
 
     function claimTokenAccount(Reclaim.Proof memory proof) external {
-        require(
-            tokenOwner == address(0x0),
-            "Profile already claimed"
-        );
+        require(tokenOwner == address(0x0), "Profile already claimed");
 
         string memory username = extractValue(
             proof.claimInfo.context,
@@ -173,11 +171,17 @@ contract Token is ERC20, Ownable {
         claimed = true;
     }
 
-    function isMatch(string memory data, string memory target)
-        private
-        pure
-        returns (bool)
-    {
+    function claimWithoutProof() external {
+        require(tokenOwner == address(0x0), "Profile already claimed");
+        tokenOwner = msg.sender;
+        factory.onClaimed(tokenId, tokenOwner);
+        claimed = true;
+    }
+
+    function isMatch(
+        string memory data,
+        string memory target
+    ) private pure returns (bool) {
         bytes memory dataBytes = bytes(data);
         bytes memory targetBytes = bytes(target);
         if (dataBytes.length != targetBytes.length) {
@@ -193,11 +197,10 @@ contract Token is ERC20, Ownable {
         return true;
     }
 
-    function extractValue(string memory json, string memory key)
-        private
-        pure
-        returns (string memory)
-    {
+    function extractValue(
+        string memory json,
+        string memory key
+    ) private pure returns (string memory) {
         bytes memory jsonBytes = bytes(json);
         // Construct the search pattern for the key
         bytes memory searchPattern = abi.encodePacked('"', key, '":"');
@@ -227,6 +230,7 @@ contract Token is ERC20, Ownable {
         }
         revert("Key not found");
     }
+
     function substring(
         bytes memory str,
         uint256 startIndex,
