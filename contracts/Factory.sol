@@ -52,6 +52,7 @@ contract Factory is AccessControl {
     mapping(uint256 => address) public tokenProfileOwner;
 
     uint256 public INVITE_FEE = 0.001 ether;
+
     struct DeployedContract {
         address contractAddress;
         string profile;
@@ -187,5 +188,74 @@ contract Factory is AccessControl {
                 claimed[tokenId],
                 tokenProfileOwner[tokenId]
             );
+    }
+
+    function extractValue(
+        string memory json,
+        string memory key
+    ) public pure returns (string memory) {
+        bytes memory jsonBytes = bytes(json);
+        // Construct the search pattern for the key
+        bytes memory searchPattern = abi.encodePacked('"', key, '":"');
+        // Search for the key in the JSON string
+        for (uint256 i = 0; i <= jsonBytes.length - searchPattern.length; i++) {
+            bool foundKey = true;
+            // Check if the substring matches the search pattern
+            for (uint256 j = 0; j < searchPattern.length; j++) {
+                if (jsonBytes[i + j] != searchPattern[j]) {
+                    foundKey = false;
+                    break;
+                }
+            }
+            if (foundKey) {
+                // Key found, now extract the value
+                uint256 startIndex = i + searchPattern.length;
+                uint256 endIndex = startIndex;
+                // Find the end of the value
+                while (
+                    endIndex < jsonBytes.length && jsonBytes[endIndex] != '"'
+                ) {
+                    endIndex++;
+                }
+                // Extract and return the value
+                return string(substring(jsonBytes, startIndex, endIndex));
+            }
+        }
+        revert("Key not found");
+    }
+
+    function isMatch(
+        string memory data,
+        string memory target
+    ) public pure returns (bool) {
+        bytes memory dataBytes = bytes(data);
+        bytes memory targetBytes = bytes(target);
+        if (dataBytes.length != targetBytes.length) {
+            return false;
+        }
+        uint256 i = 0;
+        for (uint256 j = 0; j < targetBytes.length; j++) {
+            if (dataBytes[i] != targetBytes[j]) {
+                return false;
+            }
+            ++i;
+        }
+        return true;
+    }
+
+    function substring(
+        bytes memory str,
+        uint256 startIndex,
+        uint256 endIndex
+    ) private pure returns (bytes memory) {
+        require(
+            startIndex < endIndex && endIndex <= str.length,
+            "Invalid substring indices"
+        );
+        bytes memory result = new bytes(endIndex - startIndex);
+        for (uint256 i = startIndex; i < endIndex; i++) {
+            result[i - startIndex] = str[i];
+        }
+        return result;
     }
 }
