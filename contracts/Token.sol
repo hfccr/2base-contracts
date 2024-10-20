@@ -11,6 +11,11 @@ contract Token is ERC20, Ownable {
         uint256 rangeTo; // The upper limit of the supply range
         uint256 price; // The price per token for this range
     }
+    struct Cost {
+        uint256 cost;
+        uint256 fee;
+        uint256 totalCost;
+    }
 
     // Array of bonding steps
     BondStep[] public bondSteps;
@@ -25,10 +30,6 @@ contract Token is ERC20, Ownable {
     uint256 public buyFee = 1000; // Fee for buying tokens
     uint256 public sellFee = 1000; // Fee for selling tokens
     uint256 public feeBalance = 0;
-
-    // Events for logging purchases and sales
-    event TokensPurchased(address indexed buyer, uint256 amount, uint256 cost);
-    event TokensSold(address indexed seller, uint256 amount, uint256 revenue);
 
     Factory.Provider public provider;
     string public profile;
@@ -65,25 +66,15 @@ contract Token is ERC20, Ownable {
             "Exceeds maximum supply"
         );
 
-        (uint256 cost, uint256 fee, uint256 totalCost) = calculateCost(_amount);
+        Cost memory cost = calculateCost(_amount);
         // uint256 fee = (cost * buyFee) / 10000; // Calculate buy fee
         // uint256 totalCost = cost + fee; // Total cost including fee
 
-        require(msg.value >= totalCost, "Insufficient funds sent");
-
+        require(msg.value >= cost.totalCost, "Insufficient funds sent");
+        feeBalance += cost.fee; // Add fee to the fee balance
         totalSupplyTokens += _amount;
         _mint(msg.sender, _amount); // Mint new tokens to the buyer
-
-        emit TokensPurchased(msg.sender, _amount, cost);
-
-        // Refund any excess Ether sent
-        if (msg.value > totalCost) {
-            payable(msg.sender).transfer(msg.value - totalCost);
-        }
-
-        feeBalance += fee; // Add fee to the fee balance
-
-        factory.onFeeCollected(tokenId, fee);
+        factory.onFeeCollected(tokenId, cost.fee);
         factory.onTokensChange(tokenId, totalSupplyTokens);
     }
 
@@ -94,26 +85,20 @@ contract Token is ERC20, Ownable {
             "Invalid amount"
         );
 
-        (uint256 revenue, uint256 fee, ) = calculateRevenue(_amount);
+        Cost memory cost = calculateRevenue(_amount);
 
         totalSupplyTokens -= _amount;
         _burn(msg.sender, _amount); // Burn the sold tokens
-
-        emit TokensSold(msg.sender, _amount, revenue);
-
-        payable(msg.sender).transfer(revenue); // Send revenue after deducting fee
-        feeBalance += fee; // Add fee to the fee balance
+        payable(msg.sender).transfer(cost.cost); // Send revenue after deducting fee
+        feeBalance += cost.fee; // Add fee to the fee balance
 
         // Transfer the fee to the owner's address
-        payable(owner()).transfer(fee);
-        factory.onFeeCollected(tokenId, fee);
+        factory.onFeeCollected(tokenId, cost.fee);
         factory.onTokensChange(tokenId, totalSupplyTokens);
     }
 
     // Function to calculate the cost of buying tokens based on current supply
-    function calculateCost(
-        uint256 _amount
-    ) public view returns (uint256, uint256, uint256) {
+    function calculateCost(uint256 _amount) public view returns (Cost memory) {
         uint256 cost = 0;
         uint256 currentSupply = totalSupplyTokens;
         for (uint256 i = 0; i < bondSteps.length; i++) {
@@ -132,13 +117,13 @@ contract Token is ERC20, Ownable {
         }
         uint256 fee = (cost * buyFee) / 10000; // Calculate buy fee
         uint256 totalCost = cost + fee; // Total cost including fee
-        return (cost, fee, totalCost);
+        return Cost(cost, fee, totalCost);
     }
 
     // Function to calculate the revenue from selling tokens based on current supply
     function calculateRevenue(
         uint256 _amount
-    ) public view returns (uint256, uint256, uint256) {
+    ) public view returns (Cost memory) {
         uint256 revenue = 0;
         uint256 currentSupply = totalSupplyTokens - _amount;
 
@@ -159,7 +144,7 @@ contract Token is ERC20, Ownable {
         }
         uint256 fee = (revenue * sellFee) / 10000; // Calculate sell fee
         uint256 totalRevenue = revenue - fee; // Total revenue after fee
-        return (revenue, fee, totalRevenue);
+        return Cost(revenue, fee, totalRevenue);
     }
 
     function claimTokenAccount() external {
