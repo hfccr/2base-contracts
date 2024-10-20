@@ -4,6 +4,8 @@ pragma solidity ^0.8.27;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Factory.sol";
+import "hardhat/console.sol";
+import "./Reclaim.sol";
 
 contract Token is ERC20, Ownable {
     // Define a structure for a price step
@@ -16,6 +18,8 @@ contract Token is ERC20, Ownable {
         uint256 fee;
         uint256 totalCost;
     }
+
+    Reclaim public reclaimContract = Reclaim(0xF90085f5Fd1a3bEb8678623409b3811eCeC5f6A5);
 
     // Array of bonding steps
     BondStep[] public bondSteps;
@@ -121,33 +125,40 @@ contract Token is ERC20, Ownable {
     function calculateRevenue(
         uint256 _amount
     ) public view returns (Cost memory) {
+        require(
+            _amount <= totalSupplyTokens,
+            "Amount to sell is more than totalSupply"
+        );
         uint256 revenue = 0;
-        uint256 currentSupply = totalSupplyTokens - _amount;
+        uint256 totalRemainingSupply = totalSupplyTokens;
+        uint256 i = bondSteps.length;
+        while (i > 0 && totalRemainingSupply < bondSteps[i-1].rangeTo) {
+            i--;
+        }
+        i++;
 
-        for (uint256 i = bondSteps.length; i > 0; i--) {
-            if (currentSupply < bondSteps[i - 1].rangeTo) {
-                uint256 remainingInRange = bondSteps[i - 1].rangeTo -
-                    currentSupply;
-                if (_amount <= remainingInRange) {
-                    revenue += _amount * bondSteps[i - 1].price;
-                    break;
-                } else {
-                    revenue += remainingInRange * bondSteps[i - 1].price;
-                    _amount -= remainingInRange;
-                    currentSupply += remainingInRange;
-                }
+        for (i; i > 0; i--) {
+            uint256 remainingInRange = totalRemainingSupply -
+                (i > 1 ? bondSteps[i - 2].rangeTo : 0);
+            if (_amount <= remainingInRange) {
+                revenue += (_amount * bondSteps[i - 1].price);
+                break;
+            } else {
+                revenue += (remainingInRange * bondSteps[i - 1].price);
+                _amount -= remainingInRange;
             }
-            currentSupply = bondSteps[i - 1].rangeTo; // Move to the previous range
+            totalRemainingSupply -= remainingInRange; // Move to the previous range
         }
         uint256 fee = (revenue * sellFee) / 10000; // Calculate sell fee
         uint256 totalRevenue = revenue - fee; // Total revenue after fee
         return Cost(revenue, fee, totalRevenue);
     }
 
-    function claimTokenAccount() external {
+    function claimTokenAccount(Reclaim.Proof memory proof) external {
         tokenOwner = msg.sender;
         factory.onClaimed(tokenId, tokenOwner);
         claimed = true;
+
     }
 
     function withdraw() external {
