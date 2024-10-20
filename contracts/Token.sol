@@ -92,6 +92,7 @@ contract Token is ERC20, Ownable {
         totalSupplyTokens -= _amount;
         payable(msg.sender).transfer(cost.cost); // Send revenue after deducting fee
         feeBalance += cost.fee; // Add fee to the fee balance
+        _burn(msg.sender, _amount); // Burn the sold tokens
 
         // Transfer the fee to the owner's address
         factory.onFeeCollected(tokenId, cost.fee);
