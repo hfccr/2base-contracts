@@ -64,13 +64,10 @@ contract Factory is AccessControl {
         address profileOwner;
     }
 
-    function createContract(
-        Provider provider,
-        string memory profile
-    ) public payable {
+    function createContract(Provider provider, string memory profile) public {
         // Check if a contract for this profile was already deployed
         // check if provider is valid
-        require(msg.value == INVITE_FEE, "Invalid amount");
+        // require(msg.value == INVITE_FEE, "Invalid amount");
         require(
             !deployedProfiles[provider][profile],
             "Contract for this profile already deployed"
@@ -82,7 +79,7 @@ contract Factory is AccessControl {
             new Token(address(this), count, "2Based", ticker, provider, profile)
         );
         _grantRole(TOKEN_ROLE, tokens);
-        profileFee[count] += msg.value;
+        // profileFee[count] += msg.value;
         deployedAccounts[tokens] = Account(profile, provider);
         deployedContracts.push(tokens);
         points[msg.sender] += 200;
