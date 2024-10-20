@@ -155,7 +155,7 @@ contract Token is ERC20, Ownable {
         return revenue;
     }
 
-    function claimTokenAcccount() external {
+    function claimTokenAccount() external {
         tokenOwner = msg.sender;
         factory.onClaimed(tokenId, tokenOwner);
         claimed = true;
